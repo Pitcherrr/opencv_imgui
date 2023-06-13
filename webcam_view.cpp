@@ -24,8 +24,44 @@ static void glfw_error_callback(int error, const char* description)
     fprintf(stderr, "GLFW Error %d: %s\n", error, description);
 }
 
+cv::VideoCapture cap(0);
+
+GLuint getCamImage()
+{
+    // Set up OpenCV window
+    cv::Mat image;
+    // if(arg1) {cv::VideoCapture cap(0);}
+    if(!cap.isOpened()) { return -1;}
+
+    cap >> image;
+
+    if (!image.data) {
+        printf("No image data \n");
+        return -1;
+    }
+
+    // std::cout << image <<std::endl;
+    // std::cout << image.rows << ',' << image.cols<< std::endl;
+
+    // Create OpenGL texture and upload OpenCV image data
+    GLuint textureId;
+    glGenTextures(1, &textureId);
+    glBindTexture(GL_TEXTURE_2D, textureId);
+
+    // Setup filtering parameters for display
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE); // This is required on WebGL for non power-of-two textures
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE); // Same
+
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, image.cols, image.rows, 0, GL_BGR, GL_UNSIGNED_BYTE, image.data);
+    glBindTexture(GL_TEXTURE_2D, 0);
+
+    return textureId;
+}
+
 // Main code
-int main(int argc, char** argv)
+int main(int, char**)
 {
     glfwSetErrorCallback(glfw_error_callback);
     if (!glfwInit())
@@ -81,38 +117,38 @@ int main(int argc, char** argv)
     bool show_another_window = false;
     ImVec4 clear_color = ImVec4(0.00f, 0.00f, 0.00f, 1.00f);
 
-    printf("Creating image\n");
-    // Set up OpenCV window
-    cv::Mat image;
-    if (argc != 2) {
-        printf("usage: DisplayImage.out <Image_Path>\n");
-        return -1;
-    }
-    image = cv::imread(argv[1], 1);
-    if (!image.data) {
-        printf("No image data \n");
-        return -1;
-    }
+    // printf("Creating image\n");
+    // // Set up OpenCV window
+    // cv::Mat image;
+    // if (argc != 2) {
+    //     printf("usage: DisplayImage.out <Image_Path>\n");
+    //     return -1;
+    // }
+    // image = cv::imread(argv[1], 1);
+    // if (!image.data) {
+    //     printf("No image data \n");
+    //     return -1;
+    // }
     
-    // Convert OpenCV image from BGR to RGBA format
-    // cv::cvtColor(image, image, cv::COLOR_BGR2RGBA);
+    // // Convert OpenCV image from BGR to RGBA format
+    // // cv::cvtColor(image, image, cv::COLOR_BGR2RGBA);
 
-    // std::cout << image <<std::endl;
-    std::cout << image.rows << ',' << image.cols<< std::endl;
+    // // std::cout << image <<std::endl;
+    // std::cout << image.rows << ',' << image.cols<< std::endl;
 
-    // Create OpenGL texture and upload OpenCV image data
-    GLuint textureId;
-    glGenTextures(1, &textureId);
-    glBindTexture(GL_TEXTURE_2D, textureId);
+    // // Create OpenGL texture and upload OpenCV image data
+    // GLuint textureId;
+    // glGenTextures(1, &textureId);
+    // glBindTexture(GL_TEXTURE_2D, textureId);
 
-    // Setup filtering parameters for display
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE); // This is required on WebGL for non power-of-two textures
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE); // Same
+    // // Setup filtering parameters for display
+    // glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    // glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    // glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE); // This is required on WebGL for non power-of-two textures
+    // glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE); // Same
 
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, image.cols, image.rows, 0, GL_BGR, GL_UNSIGNED_BYTE, image.data);
-    glBindTexture(GL_TEXTURE_2D, 0);
+    // glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, image.cols, image.rows, 0, GL_BGR, GL_UNSIGNED_BYTE, image.data);
+    // glBindTexture(GL_TEXTURE_2D, 0);
 
     // Main loop
 #ifdef __EMSCRIPTEN__
@@ -162,12 +198,14 @@ int main(int argc, char** argv)
             // Embed OpenCV window in ImGui
             ImGui::Begin("OpenCV Disp.");
 
+            GLuint webcam_cap;
+            webcam_cap = getCamImage();
+
             // Display the image using the OpenGL texture
-            ImVec2 image_size(image.cols, image.rows);
-            ImGui::Text("pointer = %p", textureId);
-            ImGui::Text("size = %d x %d", image.cols, image.rows);
+            ImGui::Text("pointer = %p", webcam_cap);
+            ImGui::Text("size = %d x %d", 1280, 720);
             // ImGui::Image(reinterpret_cast<ImTextureID>(static_cast<intptr_t>(textureId)), image_size);
-            ImGui::Image((void*)(intptr_t)textureId, ImVec2(image.cols, image.rows));
+            ImGui::Image((void*)(intptr_t)webcam_cap, ImVec2(1280, 720));
 
             ImGui::End();
             ////////////////////////////////////////////////////////////////////////////////////
