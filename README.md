@@ -1,9 +1,12 @@
-Start of a GUI project im going to attempt. imgui has pretty poor documantation in regards to building the application though this is probably cause im a c noob.
+Using imgui to display webcam data from opencv. This can be used in the future to apply filters to these images using the imgui UI.
 
-This is just a way to run the glfw opengl3 demo from imgui on linux using the meson build system, https://mesonbuild.com/:
+Issues:
+* Only runs at 10fps, I think this is a hard cap from openCV, going to look into using a buffer.
+
+First install openCV and other regular c++ gl dependencies.
 
 ```
-git clone --resurse-submodules
+git clone --recurse-submodules
 ```
 ```
 meson setup builddir
