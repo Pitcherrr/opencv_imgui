@@ -24,38 +24,52 @@ static void glfw_error_callback(int error, const char* description)
     fprintf(stderr, "GLFW Error %d: %s\n", error, description);
 }
 
+//init the opencv locations in memory
 cv::VideoCapture cap(0);
+cv::Mat image;
+GLuint textureId = 0; // Declare textureId as a global variable
+
+void createOrUpdateTexture(const cv::Mat& image)
+{
+    if (textureId == 0) {
+        // Create OpenGL texture if it doesn't exist
+        glGenTextures(1, &textureId);
+        glBindTexture(GL_TEXTURE_2D, textureId);
+
+        // Setup filtering parameters for display
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+    }
+    else {
+        // Reuse existing texture
+        glBindTexture(GL_TEXTURE_2D, textureId);
+    }
+
+    // Update the texture with the new image data
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, image.cols, image.rows, 0, GL_BGR, GL_UNSIGNED_BYTE, image.data);
+    glBindTexture(GL_TEXTURE_2D, 0);
+}
 
 GLuint getCamImage()
 {
     // Set up OpenCV window
-    cv::Mat image;
-    // if(arg1) {cv::VideoCapture cap(0);}
-    if(!cap.isOpened()) { return -1;}
+    if (!cap.isOpened()) { return 0; }
 
     cap >> image;
 
     if (!image.data) {
         printf("No image data \n");
-        return -1;
+        return 0;
     }
 
-    // std::cout << image <<std::endl;
-    // std::cout << image.rows << ',' << image.cols<< std::endl;
+    // Resize the image if needed
+    cv::Mat resizedImage;
+    cv::resize(image, resizedImage, cv::Size(1280, 720)); // Adjust the size as per your requirements
 
-    // Create OpenGL texture and upload OpenCV image data
-    GLuint textureId;
-    glGenTextures(1, &textureId);
-    glBindTexture(GL_TEXTURE_2D, textureId);
-
-    // Setup filtering parameters for display
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE); // This is required on WebGL for non power-of-two textures
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE); // Same
-
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, image.cols, image.rows, 0, GL_BGR, GL_UNSIGNED_BYTE, image.data);
-    glBindTexture(GL_TEXTURE_2D, 0);
+    // Create or update the OpenGL texture
+    createOrUpdateTexture(resizedImage);
 
     return textureId;
 }
@@ -91,7 +105,7 @@ int main(int, char**)
 #endif
 
     // Create window with graphics context
-    GLFWwindow* window = glfwCreateWindow(1280, 720, "Webcam Viewer", nullptr, nullptr);
+    GLFWwindow* window = glfwCreateWindow(1920, 1080, "Webcam Viewer", nullptr, nullptr);
     if (window == nullptr)
         return 1;
     glfwMakeContextCurrent(window);
@@ -113,42 +127,7 @@ int main(int, char**)
     ImGui_ImplOpenGL3_Init(glsl_version);
 
     // Our state
-    bool show_demo_window = true;
-    bool show_another_window = false;
     ImVec4 clear_color = ImVec4(0.00f, 0.00f, 0.00f, 1.00f);
-
-    // printf("Creating image\n");
-    // // Set up OpenCV window
-    // cv::Mat image;
-    // if (argc != 2) {
-    //     printf("usage: DisplayImage.out <Image_Path>\n");
-    //     return -1;
-    // }
-    // image = cv::imread(argv[1], 1);
-    // if (!image.data) {
-    //     printf("No image data \n");
-    //     return -1;
-    // }
-    
-    // // Convert OpenCV image from BGR to RGBA format
-    // // cv::cvtColor(image, image, cv::COLOR_BGR2RGBA);
-
-    // // std::cout << image <<std::endl;
-    // std::cout << image.rows << ',' << image.cols<< std::endl;
-
-    // // Create OpenGL texture and upload OpenCV image data
-    // GLuint textureId;
-    // glGenTextures(1, &textureId);
-    // glBindTexture(GL_TEXTURE_2D, textureId);
-
-    // // Setup filtering parameters for display
-    // glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-    // glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-    // glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE); // This is required on WebGL for non power-of-two textures
-    // glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE); // Same
-
-    // glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, image.cols, image.rows, 0, GL_BGR, GL_UNSIGNED_BYTE, image.data);
-    // glBindTexture(GL_TEXTURE_2D, 0);
 
     // Main loop
 #ifdef __EMSCRIPTEN__
@@ -173,14 +152,9 @@ int main(int, char**)
         ImGui::NewFrame();
 
         // 1. Show the big demo window (Most of the sample code is in ImGui::ShowDemoWindow()! You can browse its code to learn more about Dear ImGui!).
-        if (show_demo_window)
-            ImGui::ShowDemoWindow(&show_demo_window);
 
         // 2. Show a simple window that we create ourselves. We use a Begin/End pair to create a named window.
         {
-            static float f = 0.0f;
-            static int counter = 0;
-
 
             // Begin ImGui frame
             ImGui::SetNextWindowPos(ImVec2(0, 0));  // Set the window position to the top-left corner
@@ -197,7 +171,7 @@ int main(int, char**)
             ////////////////////////////////////////////////////////////////////////////////////
             // Embed OpenCV window in ImGui
             ImGui::Begin("OpenCV Disp.");
-
+            ImGui::SetWindowFontScale(2.0f);
             GLuint webcam_cap;
             webcam_cap = getCamImage();
 
@@ -210,31 +184,9 @@ int main(int, char**)
             ImGui::End();
             ////////////////////////////////////////////////////////////////////////////////////
 
-            ImGui::Begin("Hello, world!");                          // Create a window called "Hello, world!" and append into it.
-
-            ImGui::Text("This is some useful text.");               // Display some text (you can use a format strings too)
-            ImGui::Checkbox("Demo Window", &show_demo_window);      // Edit bools storing our window open/close state
-            ImGui::Checkbox("Another Window", &show_another_window);
-
-            ImGui::SliderFloat("float", &f, 0.0f, 1.0f);            // Edit 1 float using a slider from 0.0f to 1.0f
-            ImGui::ColorEdit3("clear color", (float*)&clear_color); // Edit 3 floats representing a color
-
-            if (ImGui::Button("Button"))                            // Buttons return true when clicked (most widgets return true when edited/activated)
-                counter++;
-            ImGui::SameLine();
-            ImGui::Text("counter = %d", counter);
-
+            ImGui::Begin("Performance"); 
+            ImGui::SetWindowFontScale(2.0f);                         // Create a window called "Hello, world!" and append into it.
             ImGui::Text("Application average %.3f ms/frame (%.1f FPS)", 1000.0f / io.Framerate, io.Framerate);
-            ImGui::End();
-        }
-
-        // 3. Show another simple window.
-        if (show_another_window)
-        {
-            ImGui::Begin("Another Window", &show_another_window);   // Pass a pointer to our bool variable (the window will have a closing button that will clear the bool when clicked)
-            ImGui::Text("Hello from another window!");
-            if (ImGui::Button("Close Me"))
-                show_another_window = false;
             ImGui::End();
         }
 
