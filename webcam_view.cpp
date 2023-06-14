@@ -19,15 +19,31 @@
 #include "../libs/emscripten/emscripten_mainloop_stub.h"
 #endif
 
+//bool init = true;
+
 static void glfw_error_callback(int error, const char* description)
 {
     fprintf(stderr, "GLFW Error %d: %s\n", error, description);
 }
 
-//init the opencv locations in memory
-cv::VideoCapture cap(0);
-cv::Mat image;
-GLuint textureId = 0; // Declare textureId as a global variable
+//void initWebCam()
+//{
+    //init the opencv locations in memory
+    // cv::VideoCapture cap(0);
+    cv::VideoCapture cap(0);
+
+    cv::Mat image;
+    GLuint textureId = 0; // Declare textureId as a global variable
+//}
+
+// class CapDevice {
+//     public:
+
+//     cv::VideoCapture device(0);
+//     cv::Mat image;
+//     GLuint textureId;
+//}
+
 
 void createOrUpdateTexture(const cv::Mat& image)
 {
@@ -54,19 +70,22 @@ void createOrUpdateTexture(const cv::Mat& image)
 
 GLuint getCamImage()
 {
+    //if(init){initWebCam();}
+    double fps = cap.get(cv::CAP_PROP_FPS);
+    std::cout << fps << std::endl;
+    
     // Set up OpenCV window
     if (!cap.isOpened()) { return 0; }
 
-    cap >> image;
+    cap.read(image);
 
     if (!image.data) {
         printf("No image data \n");
         return 0;
     }
-
     // Resize the image if needed
     cv::Mat resizedImage;
-    cv::resize(image, resizedImage, cv::Size(1280, 720)); // Adjust the size as per your requirements
+    cv::resize(image, resizedImage, cv::Size(1280, 720));
 
     // Create or update the OpenGL texture
     createOrUpdateTexture(resizedImage);
@@ -128,6 +147,12 @@ int main(int, char**)
 
     // Our state
     ImVec4 clear_color = ImVec4(0.00f, 0.00f, 0.00f, 1.00f);
+
+
+    // video capture settings
+    double des_fps = 30; 
+    cap.set(cv::CAP_PROP_FPS, des_fps);
+
 
     // Main loop
 #ifdef __EMSCRIPTEN__
