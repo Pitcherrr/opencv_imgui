@@ -9,7 +9,7 @@ dl = dependency('dl')
 opencv_dep = dependency('opencv4')
 
 gui_files = files(
-    'webcam_view.cpp',
+    'webcam_view_2.cpp',
     './imgui/imgui.cpp',
     './imgui/imgui_draw.cpp',
     './imgui/imgui_tables.cpp',
@@ -20,4 +20,4 @@ gui_files = files(
 )
 
 
-executable('demo', gui_files, include_directories: incdir, dependencies: [glfw_lib, opencv_dep, gl, dl])
+executable('demo', gui_files, include_directories: incdir, dependencies: [glfw_lib, opencv_dep, gl, dl], link_args: '-pthread')

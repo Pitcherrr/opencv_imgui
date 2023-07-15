@@ -5,6 +5,8 @@
 #include "imgui_impl_opengl3.h"
 #include <opencv2/opencv.hpp>
 #include <stdio.h>
+#include <atomic>
+#include <thread>
 #define GL_SILENCE_DEPRECATION
 #if defined(IMGUI_IMPL_OPENGL_ES2)
 #include <GLES2/gl2.h>
@@ -26,72 +28,101 @@ static void glfw_error_callback(int error, const char* description)
     fprintf(stderr, "GLFW Error %d: %s\n", error, description);
 }
 
-//void initWebCam()
-//{
-    //init the opencv locations in memory
-    // cv::VideoCapture cap(0);
+
+// cv::VideoCapture cap(0);
+
+// cv::Mat image;
+// GLuint textureId = 0; // Declare textureId as a global variable
+
+std::atomic<bool> stopCapture(false);
+std::atomic<GLuint*> sharedFrame(nullptr);
+std::atomic<GLuint> textureId(0);
+
+void captureThread()
+{
     cv::VideoCapture cap(0);
+    double des_fps = 30;
+    cap.set(cv::CAP_PROP_FPS, des_fps);
+    std::cout << cap.set(cv::CAP_PROP_FPS, des_fps) << std::endl;
 
-    cv::Mat image;
-    GLuint textureId = 0; // Declare textureId as a global variable
-//}
-
-// class CapDevice {
-//     public:
-
-//     cv::VideoCapture device(0);
-//     cv::Mat image;
-//     GLuint textureId;
-//}
-
-
-void createOrUpdateTexture(const cv::Mat& image)
-{
-    if (textureId == 0) {
-        // Create OpenGL texture if it doesn't exist
-        glGenTextures(1, &textureId);
-        glBindTexture(GL_TEXTURE_2D, textureId);
-
-        // Setup filtering parameters for display
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-    }
-    else {
-        // Reuse existing texture
-        glBindTexture(GL_TEXTURE_2D, textureId);
+    if (!cap.isOpened())
+    {
+        stopCapture = true;
+        return;
     }
 
-    // Update the texture with the new image data
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, image.cols, image.rows, 0, GL_BGR, GL_UNSIGNED_BYTE, image.data);
-    glBindTexture(GL_TEXTURE_2D, 0);
+    cv::Mat frame;
+
+    GLuint* textureId = sharedFrame.load();
+
+    glGenTextures(1, textureId);
+    glBindTexture(GL_TEXTURE_2D, *textureId);
+
+    // Setup filtering parameters for display
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+
+    while (!stopCapture)
+    {
+        cap >> frame;
+
+        glBindTexture(GL_TEXTURE_2D, *textureId);
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, frame.cols, frame.rows, 0, GL_BGR, GL_UNSIGNED_BYTE, frame.data);
+        glBindTexture(GL_TEXTURE_2D, 0);
+        
+        sharedFrame.store(textureId);
+    }
 }
 
-GLuint getCamImage()
-{
-    //if(init){initWebCam();}
-    double fps = cap.get(cv::CAP_PROP_FPS);
-    std::cout << fps << std::endl;
+// void createOrUpdateTexture(const cv::Mat& image)
+// {
+//     if (textureId == 0) {
+//         // Create OpenGL texture if it doesn't exist
+//         glGenTextures(1, &textureId);
+//         glBindTexture(GL_TEXTURE_2D, textureId);
+
+//         // Setup filtering parameters for display
+//         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+//         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+//         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+//         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+//     }
+//     else {
+//         // Reuse existing texture
+//         glBindTexture(GL_TEXTURE_2D, textureId);
+//     }
+
+//     // Update the texture with the new image data
+//     glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, image.cols, image.rows, 0, GL_BGR, GL_UNSIGNED_BYTE, image.data);
+//     glBindTexture(GL_TEXTURE_2D, 0);
+// }
+
+// GLuint getCamImage()
+// {
+//     //if(init){initWebCam();}
+//     // double fps = cap.get(cv::CAP_PROP_FPS);
+//     // std::cout << fps << std::endl;
     
-    // Set up OpenCV window
-    if (!cap.isOpened()) { return 0; }
+//     // Set up OpenCV window
+//     if (!cap.isOpened()) { return 0; }
 
-    cap.read(image);
+//     cap.read(image);
 
-    if (!image.data) {
-        printf("No image data \n");
-        return 0;
-    }
-    // Resize the image if needed
-    cv::Mat resizedImage;
-    cv::resize(image, resizedImage, cv::Size(1280, 720));
+//     if (!image.data) {
+//         printf("No image data \n");
+//         return 0;
+//     }
+//     // Resize the image if needed
+//     cv::Mat resizedImage;
+//     cv::resize(image, resizedImage, cv::Size(1280, 720));
 
-    // Create or update the OpenGL texture
-    createOrUpdateTexture(resizedImage);
+//     // Create or update the OpenGL texture
+//     createOrUpdateTexture(resizedImage);
 
-    return textureId;
-}
+//     return textureId;
+// }
 
 // Main code
 int main(int, char**)
@@ -150,8 +181,10 @@ int main(int, char**)
 
 
     // video capture settings
-    double des_fps = 30; 
-    cap.set(cv::CAP_PROP_FPS, des_fps);
+    // double des_fps = 30; 
+    // cap.set(cv::CAP_PROP_FPS, des_fps);
+
+    std::thread captureThreadObj(captureThread);
 
 
     // Main loop
@@ -197,10 +230,12 @@ int main(int, char**)
             // Embed OpenCV window in ImGui
             ImGui::Begin("OpenCV Disp.");
             ImGui::SetWindowFontScale(2.0f);
-            GLuint webcam_cap;
-            webcam_cap = getCamImage();
+            // GLuint webcam_cap;
+            // webcam_cap = getCamImage();
 
             // Display the image using the OpenGL texture
+            GLuint* webcam_cap = sharedFrame.load();
+
             ImGui::Text("pointer = %p", webcam_cap);
             ImGui::Text("size = %d x %d", 1280, 720);
             // ImGui::Image(reinterpret_cast<ImTextureID>(static_cast<intptr_t>(textureId)), image_size);
@@ -237,6 +272,10 @@ int main(int, char**)
 
     glfwDestroyWindow(window);
     glfwTerminate();
+
+    stopCapture = true;
+
+    captureThreadObj.join();
 
     return 0;
 }
