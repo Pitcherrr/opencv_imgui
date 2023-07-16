@@ -1,6 +1,9 @@
 #include "imgui.h"
 #include "imgui_impl_glfw.h"
 #include "imgui_impl_opengl3.h"
+#include "raylib.h"
+#include "raymath.h"
+#include "imgui_impl_raylib.h"
 #include <opencv2/opencv.hpp>
 #include <stdio.h>
 #include <atomic>
@@ -158,6 +161,14 @@ int main(int, char**)
         ImGui::SetWindowFontScale(1.0f);                         // Create a window called "Hello, world!" and append into it.
         ImGui::Text("Application average %.3f ms/frame (%.1f FPS)", 1000.0f / io.Framerate, io.Framerate);
         ImGui::End();
+
+
+        //raylib cube vizualization
+
+
+
+
+
 
         ImGui::Render();
         int display_w, display_h;
