@@ -35,15 +35,15 @@ static void glfw_error_callback(int error, const char* description)
 // GLuint textureId = 0; // Declare textureId as a global variable
 
 std::atomic<bool> stopCapture(false);
-std::atomic<GLuint*> sharedFrame(nullptr);
-std::atomic<GLuint> textureId(0);
+std::atomic<cv::Mat*> sharedFrame(nullptr);
+std::atomic<bool> frameAvailable(false);
+GLuint textureId = 0;
 
 void captureThread()
 {
     cv::VideoCapture cap(0);
     double des_fps = 30;
     cap.set(cv::CAP_PROP_FPS, des_fps);
-    std::cout << cap.set(cv::CAP_PROP_FPS, des_fps) << std::endl;
 
     if (!cap.isOpened())
     {
@@ -52,27 +52,20 @@ void captureThread()
     }
 
     cv::Mat frame;
-
-    GLuint* textureId = sharedFrame.load();
-
-    glGenTextures(1, textureId);
-    glBindTexture(GL_TEXTURE_2D, *textureId);
-
-    // Setup filtering parameters for display
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-
     while (!stopCapture)
     {
         cap >> frame;
 
-        glBindTexture(GL_TEXTURE_2D, *textureId);
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, frame.cols, frame.rows, 0, GL_BGR, GL_UNSIGNED_BYTE, frame.data);
-        glBindTexture(GL_TEXTURE_2D, 0);
-        
-        sharedFrame.store(textureId);
+        if (frame.empty())
+            continue;
+
+        cv::Mat* sharedFramePtr = new cv::Mat(frame); // Create a new cv::Mat to share
+
+        cv::Mat* oldFrame = sharedFrame.exchange(sharedFramePtr); // Atomic exchange
+        if (oldFrame)
+            delete oldFrame;
+
+        frameAvailable = true;
     }
 }
 
@@ -131,28 +124,9 @@ int main(int, char**)
     if (!glfwInit())
         return 1;
 
-    // Decide GL+GLSL versions
-#if defined(IMGUI_IMPL_OPENGL_ES2)
-    // GL ES 2.0 + GLSL 100
-    const char* glsl_version = "#version 100";
-    glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 2);
-    glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 0);
-    glfwWindowHint(GLFW_CLIENT_API, GLFW_OPENGL_ES_API);
-#elif defined(__APPLE__)
-    // GL 3.2 + GLSL 150
-    const char* glsl_version = "#version 150";
-    glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
-    glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 2);
-    glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);  // 3.2+ only
-    glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE);            // Required on Mac
-#else
-    // GL 3.0 + GLSL 130
     const char* glsl_version = "#version 130";
     glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
     glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 0);
-    //glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);  // 3.2+ only
-    //glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE);            // 3.0+ only
-#endif
 
     // Create window with graphics context
     GLFWwindow* window = glfwCreateWindow(1920, 1080, "Webcam Viewer", nullptr, nullptr);

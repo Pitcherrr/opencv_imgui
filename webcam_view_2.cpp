@@ -20,6 +20,13 @@ std::atomic<cv::Mat*> sharedFrame(nullptr);
 std::atomic<bool> frameAvailable(false);
 GLuint textureId = 0;
 
+struct cam_params{
+    int width;
+    int height;
+};
+
+cam_params camera = {};
+
 void captureThread()
 {
     cv::VideoCapture cap(0);
@@ -31,6 +38,11 @@ void captureThread()
         stopCapture = true;
         return;
     }
+
+    camera.width = static_cast<int>(cap.get(cv::CAP_PROP_FRAME_WIDTH));
+    camera.height = static_cast<int>(cap.get(cv::CAP_PROP_FRAME_HEIGHT));
+
+    std::cout << camera.width << "x" << camera.height << std::endl;
 
     cv::Mat frame;
     while (!stopCapture)
@@ -63,7 +75,7 @@ int main(int, char**)
     glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
     glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 0);
 
-    GLFWwindow* window = glfwCreateWindow(1280, 720, "Webcam Viewer", nullptr, nullptr);
+    GLFWwindow* window = glfwCreateWindow(1600, 900, "Webcam Viewer", nullptr, nullptr);
     if (!window)
     {
         glfwTerminate();
@@ -96,7 +108,14 @@ int main(int, char**)
         ImGui::NewFrame();
 
         ImGui::Begin("Webcam Image");
-        ImVec2 imageSize(1280, 720);
+
+        ImVec2 window_size = ImGui::GetWindowSize();
+
+        float image_scale = window_size.x / camera.width;
+
+        ImVec2 imageSize(static_cast<int>(camera.width*image_scale), static_cast<int>(camera.height*image_scale));
+
+        // ImVec2 imageSize(camera.width, camera.height);
 
         if (frameAvailable)
         {
@@ -133,6 +152,11 @@ int main(int, char**)
 
         ImGui::Image(reinterpret_cast<ImTextureID>(static_cast<uintptr_t>(textureId)), imageSize);
 
+        ImGui::End();
+
+        ImGui::Begin("Performance"); 
+        ImGui::SetWindowFontScale(1.0f);                         // Create a window called "Hello, world!" and append into it.
+        ImGui::Text("Application average %.3f ms/frame (%.1f FPS)", 1000.0f / io.Framerate, io.Framerate);
         ImGui::End();
 
         ImGui::Render();
